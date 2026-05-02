@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Moon } from "lucide-react";
 import { StoryForm, type Tradition } from "@/components/StoryForm";
 import { StoryView, type Story } from "@/components/StoryView";
+import { EmailStoryModal } from "@/components/EmailStoryModal";
 import { generateStory } from "@/server/story.functions";
 
 export const Route = createFileRoute("/")({
@@ -21,9 +22,19 @@ export const Route = createFileRoute("/")({
   }),
 });
 
+const MODAL_STORAGE_KEY = "starlit_email_modal_seen";
+
 function Index() {
   const [loading, setLoading] = useState(false);
   const [story, setStory] = useState<Story | null>(null);
+  const [lastInput, setLastInput] = useState<{
+    tradition: Tradition;
+    prompt: string;
+    minutes: number;
+  } | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const storyRef = useRef<HTMLDivElement>(null);
+  const triggeredRef = useRef(false);
 
   const handleSubmit = async (input: {
     tradition: Tradition;
@@ -34,6 +45,8 @@ function Index() {
     try {
       const result = await generateStory({ data: input });
       setStory(result);
+      setLastInput(input);
+      triggeredRef.current = false;
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
       const message = e instanceof Error ? e.message : "Something went quiet in the stars. Please try again.";
@@ -42,6 +55,76 @@ function Index() {
       setLoading(false);
     }
   };
+
+  // Scroll detection: trigger modal at ~90% of story container
+  useEffect(() => {
+    if (!story) return;
+    if (typeof window === "undefined") return;
+    if (sessionStorage.getItem(MODAL_STORAGE_KEY)) return;
+
+    let timeoutId: number | null = null;
+
+    const onScroll = () => {
+      if (triggeredRef.current) return;
+      const el = storyRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const totalHeight = el.offsetHeight;
+      const viewportH = window.innerHeight;
+      // Distance scrolled past the top of the story element
+      const scrolled = Math.max(0, viewportH - rect.top);
+      const progress = scrolled / Math.max(totalHeight, 1);
+      if (progress >= 0.9) {
+        triggeredRef.current = true;
+        window.removeEventListener("scroll", onScroll);
+        timeoutId = window.setTimeout(() => {
+          if (!sessionStorage.getItem(MODAL_STORAGE_KEY)) {
+            setModalOpen(true);
+          }
+        }, 1500);
+      }
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [story]);
+
+  const handleModalClose = () => {
+    setModalOpen(false);
+    try {
+      sessionStorage.setItem(MODAL_STORAGE_KEY, "1");
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleSubmitted = () => {
+    try {
+      // Persist across sessions once submitted
+      localStorage.setItem(MODAL_STORAGE_KEY, "1");
+      sessionStorage.setItem(MODAL_STORAGE_KEY, "1");
+    } catch {
+      // ignore
+    }
+  };
+
+  // Compose plain-text story for email payload
+  const storyText = story
+    ? [
+        story.title,
+        "",
+        ...story.scenes.map((s) => s.text),
+        "",
+        story.closing_blessing,
+      ].join("\n\n")
+    : "";
+
+  const traditionLabel = (t: Tradition) =>
+    t === "eastern_orthodox" ? "Eastern Orthodox" : t === "catholic" ? "Catholic" : "Protestant";
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -82,8 +165,26 @@ function Index() {
           </div>
         )}
 
-        {story && <StoryView story={story} onReset={() => setStory(null)} />}
+        {story && (
+          <div ref={storyRef}>
+            <StoryView story={story} onReset={() => setStory(null)} />
+          </div>
+        )}
       </main>
+
+      {story && lastInput && (
+        <EmailStoryModal
+          open={modalOpen}
+          onClose={handleModalClose}
+          onSubmitted={handleSubmitted}
+          payload={{
+            story: storyText,
+            prompt: lastInput.prompt,
+            denomination: traditionLabel(lastInput.tradition),
+            length: `${lastInput.minutes} minutes`,
+          }}
+        />
+      )}
 
       <Toaster position="top-center" />
     </div>
