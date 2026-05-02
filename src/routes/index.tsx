@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
 import { Toaster } from "@/components/ui/sonner";
 import { Moon } from "lucide-react";
 import { StoryForm, type Tradition } from "@/components/StoryForm";
 import { StoryView, type Story } from "@/components/StoryView";
 import { EmailStoryModal } from "@/components/EmailStoryModal";
-import { generateStory } from "@/server/story.functions";
+import { generateStory } from "@/functions/story.functions";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/")({
 const MODAL_STORAGE_KEY = "starlit_email_modal_seen";
 
 function Index() {
+  const generateStoryFn = useServerFn(generateStory);
   const [loading, setLoading] = useState(false);
   const [story, setStory] = useState<Story | null>(null);
   const [lastInput, setLastInput] = useState<{
@@ -43,7 +45,7 @@ function Index() {
   }) => {
     setLoading(true);
     try {
-      const result = await generateStory({ data: input });
+      const result = await generateStoryFn({ data: input });
       setStory(result);
       setLastInput(input);
       triggeredRef.current = false;

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { Mail, X, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { sendStoryEmail } from "@/server/email.functions";
+import { sendStoryEmail } from "@/functions/email.functions";
 
 type Props = {
   open: boolean;
@@ -18,6 +19,7 @@ type Props = {
 };
 
 export function EmailStoryModal({ open, onClose, payload, onSubmitted }: Props) {
+  const sendStoryEmailFn = useServerFn(sendStoryEmail);
   const [email, setEmail] = useState("");
   const [subscribe, setSubscribe] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -57,7 +59,7 @@ export function EmailStoryModal({ open, onClose, payload, onSubmitted }: Props) 
     setError(null);
     setLoading(true);
     try {
-      await sendStoryEmail({
+      await sendStoryEmailFn({
         data: {
           email: trimmed,
           story: payload.story,
