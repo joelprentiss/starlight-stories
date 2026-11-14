@@ -97,7 +97,7 @@
     background-attachment: fixed;
     color: var(--color-foreground);
     font-family: var(--font-body);
-    min-height: 100vh;
+    min-height: 100dvh;
   }
 
   h1, h2, h3, h4 {
@@ -166,10 +166,19 @@
     100% { transform: translateX(0) translateY(0); }
   }
 
-  .scrollbar-dreamy::-webkit-scrollbar { width: 8px; }
-  .scrollbar-dreamy::-webkit-scrollbar-track { background: transparent; }
-  .scrollbar-dreamy::-webkit-scrollbar-thumb {
-    background: oklch(0.82 0.12 85 / 0.3);
-    border-radius: 999px;
+  .scrollbar-dreamy {
+    --scrollbar-thumb: oklch(0.82 0.12 85 / 0.3);
+    --scrollbar-track: transparent;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+  /* Legacy WebKit fallback for browsers without standard scrollbar-color */
+  @supports not (scrollbar-color: auto) {
+    .scrollbar-dreamy::-webkit-scrollbar { width: 8px; }
+    .scrollbar-dreamy::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+    .scrollbar-dreamy::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb);
+      border-radius: 999px;
+    }
   }
 }
